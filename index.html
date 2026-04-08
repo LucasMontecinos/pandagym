@@ -236,6 +236,7 @@ input{font-family:'Outfit',sans-serif;outline:none}
       <button id="atab-bookings" class="active" onclick="switchAdminTab('bookings')">📋 Reservas</button>
       <button id="atab-users" onclick="switchAdminTab('users')">👥 Usuarios</button>
       <button id="atab-schedule" onclick="switchAdminTab('schedule')">📅 Horario</button>
+      <button id="atab-settings" onclick="switchAdminTab('settings')">⚙️ Config</button>
     </div>
     <div id="admin-bookings-panel" class="admin-section"></div>
     <div id="admin-users-panel" class="admin-section" style="display:none"></div>
@@ -247,6 +248,20 @@ input{font-family:'Outfit',sans-serif;outline:none}
       </div>
       <p class="week-range" id="admin-week-range"></p>
       <div class="grid-wrapper"><div class="grid" id="admin-grid"></div></div>
+    </div>
+    <div id="admin-settings-panel" class="admin-section" style="display:none">
+      <h3 class="section-title">Configuración del Gimnasio</h3>
+      <div class="user-card" style="margin-top:10px">
+        <div style="margin-bottom:12px">
+          <span class="name">Máximo de personas por hora</span><br>
+          <span class="email">Cuántas personas pueden reservar el mismo bloque horario</span>
+        </div>
+        <div class="edit-row">
+          <label>Cupos por hora:</label>
+          <div class="opts" id="max-slot-opts"></div>
+        </div>
+        <p style="color:var(--text3);font-size:11px;margin-top:10px">Valor actual: <strong style="color:var(--green)" id="current-max-display">6</strong> personas por hora</p>
+      </div>
     </div>
   </div>
 </div>
@@ -294,7 +309,7 @@ const SLOTS = Array.from({length:13},(_,i)=>{
 });
 const DAYS_LABEL = ['Lun','Mar','Mié','Jue','Vie','Sáb'];
 const DAYS_FULL = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-const MAX_PER_SLOT = 6;
+let MAX_PER_SLOT = 6;
 
 // ── STATE ──
 let currentUser = null;   // {uid, name, email, isAdmin, maxHoursPerDay, maxDaysPerWeek}
@@ -375,6 +390,7 @@ auth.onAuthStateChanged(async user=>{
     // detach listeners
     db.ref('pandapower/bookings').off();
     db.ref('pandapower/users').off();
+    db.ref('pandapower/settings').off();
     return;
   }
   // Load user profile
@@ -402,6 +418,7 @@ auth.onAuthStateChanged(async user=>{
   // Listen to data
   db.ref('pandapower/users').on('value',s=>{allUsers=s.val()||{};render()});
   db.ref('pandapower/bookings').on('value',s=>{allBookings=s.val()||{};render()});
+  db.ref('pandapower/settings').on('value',s=>{const v=s.val();if(v&&v.maxPerSlot)MAX_PER_SLOT=v.maxPerSlot;render()});
 });
 
 // ── BOOKING LOGIC ──
@@ -532,6 +549,7 @@ function render(){
     renderAdminBookings(weekDates,today);
     renderAdminUsers();
     renderAdminSchedule(weekDates,today);
+    renderSettings();
   } else {
     renderUserDashboard(weekDates,today);
   }
@@ -683,9 +701,24 @@ function renderAdminSchedule(weekDates,today){
 
 function toggleEdit(uid){editingUserId=editingUserId===uid?null:uid;render()}
 
+async function updateMaxPerSlot(val){
+  const n=Math.max(1,parseInt(val)||6);
+  await db.ref('pandapower/settings/maxPerSlot').set(n);
+  showToast(`Cupos por hora: ${n}`,'success');
+}
+
+function renderSettings(){
+  const opts=document.getElementById('max-slot-opts');
+  if(!opts)return;
+  opts.innerHTML=[4,5,6,7,8,10,12,15].map(n=>
+    `<button class="${MAX_PER_SLOT===n?'active':''}" onclick="updateMaxPerSlot(${n})">${n}</button>`
+  ).join('');
+  document.getElementById('current-max-display').textContent=MAX_PER_SLOT;
+}
+
 function switchAdminTab(tab){
   adminTab=tab;
-  ['bookings','users','schedule'].forEach(t=>{
+  ['bookings','users','schedule','settings'].forEach(t=>{
     document.getElementById('atab-'+t).className=t===tab?'active':'';
     const panel=document.getElementById('admin-'+t+'-panel');
     if(panel)panel.style.display=t===tab?'block':'none';
