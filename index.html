@@ -331,7 +331,7 @@ function switchAuthTab(mode){
 }
 
 async function handleAuth(){
-  const email=document.getElementById('auth-email').value.trim();
+  const email=document.getElementById('auth-email').value.trim().toLowerCase();
   const pass=document.getElementById('auth-password').value;
   const name=document.getElementById('auth-name').value.trim();
   const errEl=document.getElementById('auth-error');
